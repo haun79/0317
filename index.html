@@ -346,73 +346,6 @@
                 padding-top: 0;
             }
         }
-
-        /* ========== 響應式：手機橫向螢幕 (Landscape) ========== */
-        @media (max-width: 1024px) and (orientation: landscape) {
-            body {
-                justify-content: center;
-                align-items: center;
-                background-color: #000; /* 橫向邊緣為全黑，沉浸感更好 */
-                padding: 0;
-            }
-
-            #game-wrapper {
-                width: 100vw;
-                height: 100vh;
-                padding: 0;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            #game-container {
-                /* 確保畫布不會超出螢幕，維持 1000:600 (5:3) 的比例 */
-                width: auto;
-                height: 100vh;
-                max-width: 100vw;
-                aspect-ratio: 5 / 3;
-                border: none;
-            }
-
-            canvas {
-                width: 100%;
-                height: 100%;
-                object-fit: contain;
-            }
-
-            /* 觸控層填滿畫面 */
-            #touch-controls {
-                height: 100vh;
-            }
-
-            /* 搖桿往左下角集中 */
-            .joystick-base {
-                bottom: 15%;
-                left: 8%;
-                /* 橫向時高度較小，使用 vh 來確保搖桿不會佔滿半個螢幕 */
-                width: clamp(80px, 30vh, 140px);
-                height: clamp(80px, 30vh, 140px);
-            }
-
-            /* 射門按鈕往右下角集中 */
-            .shoot-btn {
-                bottom: 15%;
-                right: 8%;
-                width: clamp(70px, 25vh, 110px);
-                height: clamp(70px, 25vh, 110px);
-                font-size: 14px;
-            }
-
-            /* 隱藏觸控說明節省空間 */
-            #touch-instructions {
-                display: none !important;
-            }
-
-            /* 稍微調整記分板以避開劉海或邊緣 */
-            #ui-overlay {
-                top: 4%;
-            }
-        }
     </style>
 </head>
 
@@ -1078,6 +1011,23 @@
 
         // 初始化進球音效
         const goalSound = new Audio('peekaboolabcreative-11l-victory_sound_with_t-1749487409696-357609.mp3');
+
+        // 初始化背景音樂
+        const bgmSound = new Audio('u_yl4sq8d6xg-ghibli-style-2-229070.mp3');
+        bgmSound.loop = true;
+        bgmSound.volume = 0.4; // 背景音樂稍微調小聲以免蓋過進球音效
+
+        // 由於瀏覽器自動播放策略，必須等待使用者第一次互動才能播放音樂
+        const startBgm = () => {
+            bgmSound.play().catch(e => console.warn('BGM 播放失敗:', e));
+            // 觸發後即移除監聽器
+            window.removeEventListener('keydown', startBgm);
+            window.removeEventListener('touchstart', startBgm);
+            window.removeEventListener('mousedown', startBgm);
+        };
+        window.addEventListener('keydown', startBgm, { once: true });
+        window.addEventListener('touchstart', startBgm, { once: true });
+        window.addEventListener('mousedown', startBgm, { once: true });
 
         const game = new GameCore();
         game.startMatch();
