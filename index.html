@@ -3,13 +3,13 @@
 
 <head>
     <meta charset="UTF-8">
-    <!-- 手機必備：禁止使用者手動縮放，確保遊戲畫面穩定。加入 viewport-fit=cover 支援瀏海螢幕 -->
+    <!-- 手機必備：禁止使用者手動縮放，加入 viewport-fit=cover 支援安全區域 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#2196f3">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>2D Pro Soccer - Advanced Physics Edition</title>
+    <!-- PWA 支援 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2d8a37">
+    <link rel="apple-touch-icon" href="icon-512.png">
     <style>
         :root {
             --grass-color: #2d8a37;
@@ -176,35 +176,6 @@
             color: white;
         }
 
-        /* 全螢幕切換按鈕 */
-        #fullscreen-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            backdrop-filter: blur(4px);
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        @media (max-width: 1024px) {
-            #fullscreen-btn {
-                top: auto;
-                bottom: 20px;
-                right: 20px;
-                background: rgba(0, 0, 0, 0.7);
-                font-size: 12px;
-            }
-        }
-
         #instructions {
             margin-top: 25px;
             font-size: 14px;
@@ -225,15 +196,76 @@
 
         /* ========== 觸控裝置專用樣式 ========== */
 
+        /* 滿版覆蓋層基礎樣式 */
+        .overlay-mask {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            backdrop-filter: blur(5px);
+            padding: 20px;
+        }
+
+        /* 轉向提示：手機橫屏時顯示的最佳體驗引導 */
+        #landscape-splash {
+            color: #fff;
+            background: rgba(0, 0, 0, 0.95);
+        }
+        .splash-content {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(0,0,0,0) 100%);
+            padding: 40px;
+            border-radius: 30px;
+            border: 1px solid rgba(255,255,255,0.2);
+            position: relative;
+        }
+        .close-splash {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        /* 滾動指示器：浮動於側邊或底部 */
+        #dynamic-scroll-hint {
+            position: fixed;
+            right: 20px;
+            bottom: 30%;
+            background: var(--ui-bg);
+            padding: 15px;
+            border-radius: 12px;
+            display: none;
+            z-index: 100;
+            border: 1px solid var(--accent-gold);
+            animation: slideInRight 0.5s forwards;
+            pointer-events: none;
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(100px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
         /* 觸控控制容器：疊在遊戲畫面底部 */
         #touch-controls {
             display: none;                /* 預設隱藏，觸控裝置才顯示 */
             position: fixed;              /* 改用 fixed 確保固定在可視區域底部 */
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: clamp(150px, 40vh, 300px); /* 使用 clamp 限制高度範圍 */
-            pointer-events: none;         /* 容器本身不攔截觸控 */
+            bottom: env(safe-area-inset-bottom, 0px); /* 支援安全區域 */
+            left: env(safe-area-inset-left, 0px);
+            right: env(safe-area-inset-right, 0px);
+            height: clamp(150px, 40vh, 300px); 
+            pointer-events: none;         
             z-index: 50;
         }
 
@@ -330,9 +362,16 @@
 
         /* ========== 響應式：手機小螢幕 ========== */
         @media (max-width: 1024px) {
+            /* 針對安全性區域調整 */
+            body {
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+
             /* 遊戲外框填滿螢幕寬度 */
             #game-wrapper {
-                padding: 4px;
+                padding: min(10px, 2vw);
+                padding-left: calc(min(10px, 2vw) + env(safe-area-inset-left));
+                padding-right: calc(min(10px, 2vw) + env(safe-area-inset-right));
                 border-radius: 0;
                 width: 100vw;
                 box-shadow: none;
@@ -383,6 +422,26 @@
 </head>
 
 <body>
+
+    <!-- 橫向最佳體驗提示 (Landscape Splash) -->
+    <div id="landscape-splash" class="overlay-mask">
+        <div class="splash-content">
+            <div class="close-splash" onclick="document.getElementById('landscape-splash').style.display='none'">✕</div>
+            <div style="font-size: 50px; margin-bottom: 20px;">🏟️</div>
+            <h2>最佳遊戲體驗已就緒</h2>
+            <p>您已進入橫向模式，建議點擊下方進入全螢幕以隱藏瀏覽器選單。</p>
+            <button class="main-btn" onclick="toggleFullscreen()" 
+                    style="margin-top:25px; padding:15px 35px; border-radius:30px; border:none; background:var(--accent-gold); color:#000; font-weight:bold; font-size:18px; cursor:pointer;">
+                啟動極致全螢幕
+            </button>
+        </div>
+    </div>
+
+    <!-- 動態滾動引導 (如果畫面沒被全螢幕隱藏功能自動捲動) -->
+    <div id="dynamic-scroll-hint">
+        <div style="font-size:24px; text-align:center;">👆</div>
+        <div style="font-size:12px; margin-top:5px; color:var(--accent-gold);">向上捲動隱藏工具列</div>
+    </div>
 
     <div id="game-wrapper">
         <div id="game-container">
@@ -1134,35 +1193,88 @@
 
             // 全域阻止雙擊縮放
             document.addEventListener('dblclick', e => e.preventDefault());
-        }
 
-        // PWA Service Worker 註冊
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('SW Registered', reg))
-                    .catch(err => console.log('SW Registration Failed', err));
-            });
-        }
+            // --- PWA 與全螢幕優化邏輯 ---
 
-        // 全螢幕功能實作
-        function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    alert(`全螢幕切換失敗: ${err.message}`);
-                });
-            } else {
-                if (document.exitFullscreen) {
+            const splash = document.getElementById('landscape-splash');
+            const scrollHint = document.getElementById('dynamic-scroll-hint');
+            let splashShown = false;
+
+            /**
+             * 全螢幕切換函式
+             */
+            window.toggleFullscreen = () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.warn(`全螢幕請求失敗: ${err.message}`);
+                    });
+                } else {
                     document.exitFullscreen();
                 }
-            }
+                splash.style.display = 'none';
+            };
+
+            /**
+             * 檢查方向與顯示狀態
+             */
+            const updateUIForMobile = () => {
+                const isLandscape = window.innerWidth > window.innerHeight;
+                
+                if (isLandscape) {
+                    // 若是橫向且尚未顯示過引導，顯示全螢幕提示
+                    if (!splashShown) {
+                        splash.style.display = 'flex';
+                        splashShown = true;
+                    }
+                } else {
+                    // 若回到直向，隱藏橫向對話框並標記下次可再顯示
+                    splash.style.display = 'none';
+                    splashShown = false;
+                }
+
+                checkScrollHint();
+            };
+
+            /**
+             * 檢查是否需要捲動提示 (若未全螢幕)
+             */
+            const checkScrollHint = () => {
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+                const isFS = document.fullscreenElement !== null;
+
+                if (!isStandalone && !isFS && isTouchDevice()) {
+                    scrollHint.style.display = 'block';
+                } else {
+                    scrollHint.style.display = 'none';
+                }
+            };
+
+            // 監聽捲動事件：捲動後自動隱藏提示
+            window.addEventListener('scroll', () => {
+                if (window.pageYOffset > 20) {
+                    scrollHint.style.opacity = '0';
+                    setTimeout(() => { scrollHint.style.display = 'none'; }, 500);
+                }
+            });
+
+            // 監聽視窗變化
+            window.addEventListener('resize', updateUIForMobile);
+            window.addEventListener('orientationchange', updateUIForMobile);
+            document.addEventListener('fullscreenchange', checkScrollHint);
+            
+            // 初始化檢查
+            updateUIForMobile();
+        }
+
+        // --- 註冊 Service Worker ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('SW 註冊成功:', reg.scope))
+                    .catch(err => console.log('SW 註冊失敗:', err));
+            });
         }
     </script>
-    
-    <button id="fullscreen-btn" onclick="toggleFullscreen()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
-        全螢幕
-    </button>
 </body>
 
 </html>
