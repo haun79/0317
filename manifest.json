@@ -1,20 +1,20 @@
 {
   "name": "2D Pro Soccer - Advanced Physics",
   "short_name": "Pro Soccer",
-  "description": "2D Pro Soccer with Advanced Physics and Mobile Support",
+  "description": "2D Pro Soccer Game with Advanced Physics and Mobile Support",
   "start_url": "index.html",
-  "display": "fullscreen",
-  "orientation": "landscape",
-  "background_color": "#121212",
-  "theme_color": "#121212",
+  "display": "standalone",
+  "background_color": "#2d8a37",
+  "theme_color": "#2196f3",
+  "orientation": "any",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/532/532168.png",
+      "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/532/532168.png",
+      "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }

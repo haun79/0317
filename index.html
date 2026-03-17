@@ -3,16 +3,12 @@
 
 <head>
     <meta charset="UTF-8">
-    <!-- 手機必備：禁止使用者手動縮放，並支援安全區域 (viewport-fit=cover) -->
+    <!-- 手機必備：禁止使用者手動縮放，確保遊戲畫面穩定。加入 viewport-fit=cover 支援瀏海螢幕 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
-    <!-- PWA 與行動裝置全螢幕標籤 -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#121212">
+    <meta name="theme-color" content="#2196f3">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/532/532168.png">
-    
     <title>2D Pro Soccer - Advanced Physics Edition</title>
     <style>
         :root {
@@ -40,25 +36,13 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            
-            /* 行動裝置全螢幕高度優化：解決網址列遮擋問題 */
             min-height: 100vh;
-            min-height: -webkit-fill-available;
-            min-height: 100dvh;
-            
             overflow: hidden;
-            /* 防止手機上的觸控拖曳導致頁面滾動與下拉刷新 */
+            /* 防止手機上的觸控拖曳導致頁面滾動 */
             touch-action: none;
-            overscroll-behavior: none;
             -webkit-touch-callout: none;
             -webkit-user-select: none;
             user-select: none;
-        }
-
-        html {
-            /* 配合 body 的高度修正 */
-            height: -webkit-fill-available;
-            height: 100%;
         }
 
         #game-wrapper {
@@ -192,6 +176,35 @@
             color: white;
         }
 
+        /* 全螢幕切換按鈕 */
+        #fullscreen-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        @media (max-width: 1024px) {
+            #fullscreen-btn {
+                top: auto;
+                bottom: 20px;
+                right: 20px;
+                background: rgba(0, 0, 0, 0.7);
+                font-size: 12px;
+            }
+        }
+
         #instructions {
             margin-top: 25px;
             font-size: 14px;
@@ -315,41 +328,6 @@
             border-radius: 20px;
         }
 
-        /* 全螢幕切換按鈕 */
-        #fs-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white;
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            backdrop-filter: blur(5px);
-            transition: all 0.3s;
-        }
-
-        #fs-toggle:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        #fs-toggle svg {
-            width: 24px;
-            height: 24px;
-            fill: currentColor;
-        }
-
-        /* 當已經在全螢幕時，隱藏觸控說明以增加可視空間 */
-        :fullscreen #touch-instructions {
-            display: none !important;
-        }
-
         /* ========== 響應式：手機小螢幕 ========== */
         @media (max-width: 1024px) {
             /* 遊戲外框填滿螢幕寬度 */
@@ -405,13 +383,6 @@
 </head>
 
 <body>
-
-    <!-- 全螢幕切換按鈕 -->
-    <div id="fs-toggle" title="切換全螢幕模式">
-        <svg viewBox="0 0 24 24">
-            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
-        </svg>
-    </div>
 
     <div id="game-wrapper">
         <div id="game-container">
@@ -1165,33 +1136,33 @@
             document.addEventListener('dblclick', e => e.preventDefault());
         }
 
-        // --- 全螢幕 API 實作 ---
-        const fsToggle = document.getElementById('fs-toggle');
-        fsToggle.addEventListener('click', () => {
+        // PWA Service Worker 註冊
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW Registered', reg))
+                    .catch(err => console.log('SW Registration Failed', err));
+            });
+        }
+
+        // 全螢幕功能實作
+        function toggleFullscreen() {
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen().catch(err => {
-                    console.warn(`全螢幕請求失敗: ${err.message}`);
+                    alert(`全螢幕切換失敗: ${err.message}`);
                 });
             } else {
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
                 }
             }
-        });
-
-        // 監聽全螢幕變化以更新圖標
-        document.addEventListener('fullscreenchange', () => {
-            const svg = fsToggle.querySelector('svg');
-            if (document.fullscreenElement) {
-                // 回到視窗顯示的圖標
-                svg.innerHTML = '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>';
-            } else {
-                // 進入全螢幕的圖標
-                svg.innerHTML = '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>';
-            }
-        });
-
+        }
     </script>
+    
+    <button id="fullscreen-btn" onclick="toggleFullscreen()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+        全螢幕
+    </button>
 </body>
 
 </html>
