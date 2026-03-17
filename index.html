@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <!-- 手機必備：禁止使用者手動縮放，確保遊戲畫面穩定 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2D Pro Soccer - Advanced Physics Edition</title>
+    <style>
+        :root {
+            --grass-color: #2d8a37;
+            --grass-light: #34a341;
+            --line-color: rgba(255, 255, 255, 0.6);
+            --bg-dark: #121212;
+            --ui-bg: rgba(0, 0, 0, 0.75);
+            --player-blue: #2196f3;
+            --ai-red: #f44336;
+            --accent-gold: #ffd700;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            /* 防止手機上的觸控拖曳導致頁面滾動 */
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        #game-wrapper {
+            position: relative;
+            padding: 10px;
+            background: #222;
+            border-radius: 12px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
+        }
+
+        #game-container {
+            position: relative;
+            border: 5px solid #444;
+            border-radius: 4px;
+            background-color: var(--grass-color);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 50px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-card {
+            background: var(--ui-bg);
+            padding: 12px 24px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            min-width: 130px;
+            backdrop-filter: blur(8px);
+        }
+
+        .hud-card label {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #aaa;
+            margin-bottom: 4px;
+        }
+
+        .hud-card .val {
+            font-size: 32px;
+            font-weight: 800;
+        }
+
+        #timer-hud {
+            border: 2px solid var(--accent-gold);
+            min-width: 140px;
+        }
+
+        #timer-hud .val {
+            color: var(--accent-gold);
+            font-family: 'Monaco', 'Consolas', monospace;
+        }
+
+        /* 結算與進球提示樣式 */
+        #game-over, #goal-banner {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            text-align: center;
+        }
+
+        #goal-banner {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+        }
+
+        #goal-banner h1 {
+            font-size: 120px;
+            font-weight: 900;
+            color: var(--accent-gold);
+            letter-spacing: 15px;
+            animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes bounceIn {
+            0% { transform: scale(0.3); opacity: 0; }
+            70% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); }
+        }
+
+        #game-over h1 {
+            font-size: 72px;
+            font-weight: 900;
+            margin-bottom: 10px;
+            letter-spacing: -2px;
+        }
+
+        #final-score {
+            font-size: 36px;
+            margin-bottom: 40px;
+            opacity: 0.8;
+        }
+
+        #restart-btn {
+            padding: 18px 48px;
+            font-size: 22px;
+            font-weight: bold;
+            background: white;
+            color: black;
+            border: none;
+            border-radius: 40px;
+            cursor: pointer;
+            pointer-events: all;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #restart-btn:hover {
+            transform: scale(1.1);
+            background: var(--player-blue);
+            color: white;
+        }
+
+        #instructions {
+            margin-top: 25px;
+            font-size: 14px;
+            color: #666;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px 30px;
+            border-radius: 20px;
+        }
+
+        .key {
+            color: #fff;
+            font-weight: bold;
+            background: #444;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin: 0 4px;
+        }
+
+        /* ========== 觸控裝置專用樣式 ========== */
+
+        /* 觸控控制容器：疊在遊戲畫面底部 */
+        #touch-controls {
+            display: none;                /* 預設隱藏，觸控裝置才顯示 */
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 45%;                  /* 佔遊戲畫面下方 45% */
+            pointer-events: none;         /* 容器本身不攔截觸控 */
+            z-index: 50;
+        }
+
+        /* 虛擬搖桿底盤 */
+        .joystick-base {
+            position: absolute;
+            left: 5%;
+            bottom: 8%;
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.12);
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            pointer-events: all;          /* 搖桿區域可觸控 */
+            touch-action: none;
+        }
+
+        /* 搖桿把手 */
+        .joystick-knob {
+            position: absolute;
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            /* 居中在底盤中央 */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: background 0.15s;
+            pointer-events: none;         /* 把手不需要獨立觸控事件 */
+        }
+
+        /* 射門按鈕 */
+        .shoot-btn {
+            position: absolute;
+            right: 5%;
+            bottom: 10%;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(255, 215, 0, 0.3);
+            border: 3px solid rgba(255, 215, 0, 0.6);
+            color: #ffd700;
+            font-size: 16px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: all;          /* 按鈕可觸控 */
+            touch-action: none;
+            transition: all 0.1s;
+        }
+
+        /* 按下射門按鈕時的視覺回饋 */
+        .shoot-btn.active {
+            background: rgba(255, 215, 0, 0.6);
+            transform: scale(0.92);
+            border-color: rgba(255, 215, 0, 0.9);
+        }
+
+        /* 手機說明文字 */
+        #touch-instructions {
+            display: none;
+            margin-top: 15px;
+            font-size: 13px;
+            color: #666;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 20px;
+            border-radius: 20px;
+        }
+
+        /* ========== 響應式：手機小螢幕 ========== */
+        @media (max-width: 1024px) {
+            /* 遊戲外框填滿螢幕寬度 */
+            #game-wrapper {
+                padding: 4px;
+                border-radius: 0;
+                width: 100vw;
+                box-shadow: none;
+            }
+
+            #game-container {
+                border-width: 2px;
+                border-radius: 0;
+            }
+
+            /* Canvas 等比縮放至 100% 寬 */
+            canvas {
+                width: 100%;
+                height: auto;
+            }
+
+            /* HUD 縮小以適應手機螢幕 */
+            #ui-overlay {
+                gap: 12px;
+                top: 8px;
+            }
+
+            .hud-card {
+                padding: 6px 12px;
+                min-width: 70px;
+                border-radius: 10px;
+            }
+
+            .hud-card label {
+                font-size: 8px;
+                letter-spacing: 1px;
+            }
+
+            .hud-card .val {
+                font-size: 20px;
+            }
+
+            #timer-hud {
+                min-width: 80px;
+            }
+
+            body {
+                justify-content: flex-start;
+                padding-top: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game-wrapper">
+        <div id="game-container">
+            <div id="ui-overlay">
+                <div class="hud-card">
+                    <label>PLAYER</label>
+                    <div class="val" id="player-score">0</div>
+                </div>
+                <div class="hud-card" id="timer-hud">
+                    <label>MATCH TIME</label>
+                    <div class="val" id="timer-display">90</div>
+                </div>
+                <div class="hud-card">
+                    <label>AI BOT</label>
+                    <div class="val" id="ai-score">0</div>
+                </div>
+            </div>
+
+            <!-- 進球提示 -->
+            <div id="goal-banner">
+                <h1>GOAL!</h1>
+            </div>
+
+            <div id="game-over">
+                <h1 id="winner-heading">MATCH ENDED</h1>
+                <div id="final-score">0 - 0</div>
+                <button id="restart-btn" onclick="game.startMatch()">KICK OFF AGAIN</button>
+            </div>
+
+            <canvas id="gameCanvas"></canvas>
+
+            <!-- 觸控控制層：虛擬搖桿 + 射門按鈕 -->
+            <div id="touch-controls">
+                <!-- 虛擬搖桿：左下角 -->
+                <div class="joystick-base" id="joystick-base">
+                    <div class="joystick-knob" id="joystick-knob"></div>
+                </div>
+                <!-- 射門按鈕：右下角 -->
+                <div class="shoot-btn" id="shoot-btn">SHOOT</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 桌面版操作說明 -->
+    <div id="instructions">
+        MOVE: <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> |
+        SHOOT: <span class="key">SPACE</span> |
+        DRIBBLE: <span class="key">WALK TO BALL</span>
+    </div>
+
+    <!-- 手機版操作說明 -->
+    <div id="touch-instructions">
+        ⬅ 左側搖桿移動 | 右側按鈕射門 ➡
+    </div>
+
+    <script>
+        /**
+         * 2D Pro Soccer - Advanced Goal & Boundary Systems
+         */
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const CONFIG = {
+            width: 1000,
+            height: 600,
+            friction: 0.98,
+            playerAccel: 0.6,
+            maxPlayerVel: 4.2,
+            aiAccel: 0.22,
+            maxAiVel: 2.1,
+            ballFriction: 0.992,
+            kickPower: 13,
+            goalHeight: 160,
+            goalDepth: 35,          // 球門網窩深度
+            postRadius: 6,          // 門柱半徑
+            matchSeconds: 90,
+            aiLogicFreq: 60,
+            resetDelay: 1500,       // 進球後重置延遲 (毫秒)
+        };
+
+        canvas.width = CONFIG.width;
+        canvas.height = CONFIG.height;
+
+        class Vec2 {
+            constructor(x, y) { this.x = x; this.y = y; }
+            add(v) { return new Vec2(this.x + v.x, this.y + v.y); }
+            sub(v) { return new Vec2(this.x - v.x, this.y - v.y); }
+            mul(s) { return new Vec2(this.x * s, this.y * s); }
+            length() { return Math.sqrt(this.x * this.x + this.y * this.y); }
+            normalized() {
+                const len = this.length();
+                return len === 0 ? new Vec2(0, 0) : new Vec2(this.x / len, this.y / len);
+            }
+            dist(v) { return this.sub(v).length(); }
+        }
+
+        class Entity {
+            constructor(x, y, radius, color) {
+                this.pos = new Vec2(x, y);
+                this.vel = new Vec2(0, 0);
+                this.radius = radius;
+                this.color = color;
+            }
+
+            drawShadow() {
+                ctx.beginPath();
+                ctx.ellipse(this.pos.x, this.pos.y + this.radius * 0.8, this.radius, this.radius * 0.4, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                ctx.fill();
+            }
+        }
+
+        class Ball extends Entity {
+            constructor(x, y) {
+                super(x, y, 12, '#ffffff');
+            }
+
+            update() {
+                this.pos = this.pos.add(this.vel);
+                this.vel = this.vel.mul(CONFIG.ballFriction);
+
+                // 進球判定 (中心點完全進入網窩範圍)
+                const gy = (CONFIG.height - CONFIG.goalHeight) / 2;
+                const top = gy, bot = gy + CONFIG.goalHeight;
+
+                // 左球門得分判定 (AI得分)
+                if (this.pos.y > top && this.pos.y < bot && this.pos.x < -this.radius/2) {
+                    return 'AI';
+                }
+                // 右球門得分判定 (Player得分)
+                if (this.pos.y > top && this.pos.y < bot && this.pos.x > CONFIG.width + this.radius/2) {
+                    return 'PLAYER';
+                }
+
+                // 物理邊界反彈
+                const margin = this.radius;
+                
+                // 處理球門區域外的碰撞
+                if (this.pos.y < top || this.pos.y > bot) {
+                    if (this.pos.x < margin) {
+                        this.pos.x = margin; this.vel.x *= -0.7;
+                    }
+                    if (this.pos.x > CONFIG.width - margin) {
+                        this.pos.x = CONFIG.width - margin; this.vel.x *= -0.7;
+                    }
+                } else {
+                    // 處於球門高度內：處理擊中網底或溢出界限
+                    if (this.pos.x < -CONFIG.goalDepth + margin) {
+                        this.pos.x = -CONFIG.goalDepth + margin; this.vel.x *= -0.3;
+                    }
+                    if (this.pos.x > CONFIG.width + CONFIG.goalDepth - margin) {
+                        this.pos.x = CONFIG.width + CONFIG.goalDepth - margin; this.vel.x *= -0.3;
+                    }
+                }
+
+                if (this.pos.y < margin || this.pos.y > CONFIG.height - margin) {
+                    this.vel.y *= -0.7;
+                    this.pos.y = Math.max(margin, Math.min(CONFIG.height - margin, this.pos.y));
+                }
+
+                return null;
+            }
+
+            draw() {
+                this.drawShadow();
+                ctx.save();
+                ctx.translate(this.pos.x, this.pos.y);
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                ctx.fillStyle = '#111';
+                for (let i = 0; i < 5; i++) {
+                    const ang = (i / 5) * Math.PI * 2;
+                    ctx.beginPath();
+                    ctx.arc(Math.cos(ang) * 5, Math.sin(ang) * 5, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        class PlayerActor extends Entity {
+            constructor(x, y, color) {
+                super(x, y, 22, color);
+            }
+
+            render() {
+                this.drawShadow();
+                ctx.save();
+                ctx.translate(this.pos.x, this.pos.y);
+                ctx.fillStyle = '#333';
+                ctx.fillRect(-12, 12, 8, 6);
+                ctx.fillRect(4, 12, 8, 6);
+                ctx.fillStyle = this.color;
+                ctx.beginPath(); ctx.roundRect(-16, -14, 32, 22, 6); ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(-16, 6, 32, 10);
+                ctx.strokeStyle = '#ffdcae'; ctx.lineWidth = 6; ctx.lineCap = 'round';
+                ctx.beginPath(); ctx.moveTo(-16, -8); ctx.lineTo(-22, 8); ctx.moveTo(16, -8); ctx.lineTo(22, 8); ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, -22, 11, 0, Math.PI * 2); ctx.fillStyle = '#ffdcae'; ctx.fill();
+                ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(0, -25, 11, Math.PI, 0); ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class HumanPlayer extends PlayerActor {
+            constructor(x, y) {
+                super(x, y, 'var(--player-blue)');
+                this.keys = {};
+                // 觸控輸入：搖桿方向 (dx, dy 各介於 -1 ~ 1)
+                this.touchDx = 0;
+                this.touchDy = 0;
+                // 觸控射門狀態
+                this.touchShoot = false;
+
+                // 鍵盤事件監聽
+                window.onkeydown = e => this.keys[e.code] = true;
+                window.onkeyup = e => this.keys[e.code] = false;
+            }
+
+            /**
+             * 設定觸控搖桿的輸入值
+             * @param {number} dx - 水平方向 (-1 到 1)
+             * @param {number} dy - 垂直方向 (-1 到 1)
+             */
+            setTouchInput(dx, dy) {
+                this.touchDx = dx;
+                this.touchDy = dy;
+            }
+
+            update() {
+                let ax = 0, ay = 0;
+
+                // 鍵盤輸入
+                if (this.keys['KeyW']) ay -= CONFIG.playerAccel;
+                if (this.keys['KeyS']) ay += CONFIG.playerAccel;
+                if (this.keys['KeyA']) ax -= CONFIG.playerAccel;
+                if (this.keys['KeyD']) ax += CONFIG.playerAccel;
+
+                // 觸控搖桿輸入（與鍵盤疊加，取較大值即可）
+                ax += this.touchDx * CONFIG.playerAccel;
+                ay += this.touchDy * CONFIG.playerAccel;
+
+                this.vel.x += ax; this.vel.y += ay;
+                if (this.vel.length() > CONFIG.maxPlayerVel) this.vel = this.vel.normalized().mul(CONFIG.maxPlayerVel);
+                this.pos = this.pos.add(this.vel);
+                this.vel = this.vel.mul(CONFIG.friction);
+                this.clampPos();
+            }
+
+            clampPos() {
+                this.pos.x = Math.max(this.radius, Math.min(CONFIG.width - this.radius, this.pos.x));
+                this.pos.y = Math.max(this.radius, Math.min(CONFIG.height - this.radius, this.pos.y));
+            }
+        }
+
+        class AIPlayer extends PlayerActor {
+            constructor(x, y) {
+                super(x, y, 'var(--ai-red)');
+                this.strategyOffset = new Vec2(0, 0);
+                this.frameCount = 0;
+            }
+
+            update(ball) {
+                this.frameCount++;
+                if (this.frameCount % CONFIG.aiLogicFreq === 0) {
+                    this.strategyOffset = new Vec2((Math.random() - 0.5) * 120, (Math.random() - 0.5) * 120);
+                }
+
+                const dToBall = this.pos.dist(ball.pos);
+                const targetGoal = new Vec2(0, CONFIG.height / 2);
+
+                let desiredDir;
+                let activeAccel = CONFIG.aiAccel;
+
+                if (dToBall < 140) {
+                    const attackPos = ball.pos.add(ball.pos.sub(targetGoal).normalized().mul(40));
+                    desiredDir = attackPos.sub(this.pos).normalized();
+                    activeAccel *= Math.max(0.3, dToBall / 140);
+                    if (this.pos.dist(attackPos) < 20) desiredDir = ball.pos.sub(this.pos).normalized();
+                } else {
+                    const tempTarget = ball.pos.add(this.strategyOffset);
+                    desiredDir = tempTarget.sub(this.pos).normalized();
+                    const wave = new Vec2(-desiredDir.y, desiredDir.x).mul(Math.sin(this.frameCount * 0.04) * 0.3);
+                    desiredDir = desiredDir.add(wave).normalized();
+                }
+
+                const margin = 100;
+                if (this.pos.x < margin) desiredDir.x += (margin - this.pos.x) / margin;
+                if (this.pos.x > CONFIG.width - margin) desiredDir.x -= (this.pos.x - (CONFIG.width - margin)) / margin;
+                if (this.pos.y < margin) desiredDir.y += (margin - this.pos.y) / margin;
+                if (this.pos.y > CONFIG.height - margin) desiredDir.y -= (this.pos.y - (CONFIG.height - margin)) / margin;
+
+                this.vel = this.vel.add(desiredDir.normalized().mul(activeAccel));
+                if (this.vel.length() > CONFIG.maxAiVel) this.vel = this.vel.normalized().mul(CONFIG.maxAiVel);
+                this.pos = this.pos.add(this.vel);
+                this.vel = this.vel.mul(CONFIG.friction);
+                
+                this.pos.x = Math.max(this.radius, Math.min(CONFIG.width - this.radius, this.pos.x));
+                this.pos.y = Math.max(this.radius, Math.min(CONFIG.height - this.radius, this.pos.y));
+            }
+        }
+
+        class GameCore {
+            constructor() {
+                this.ball = new Ball(CONFIG.width / 2, CONFIG.height / 2);
+                this.p1 = new HumanPlayer(200, CONFIG.height / 2);
+                this.ai = new AIPlayer(800, CONFIG.height / 2);
+                this.scores = { p1: 0, ai: 0 };
+                this.timeLeft = CONFIG.matchSeconds;
+                this.active = false;
+                this.isPausedForGoal = false; 
+                this.startTime = 0;
+                
+                // 門柱物理座標
+                const gy = (CONFIG.height - CONFIG.goalHeight) / 2;
+                this.posts = [
+                    new Vec2(0, gy), new Vec2(0, gy + CONFIG.goalHeight), // 左球門柱
+                    new Vec2(CONFIG.width, gy), new Vec2(CONFIG.width, gy + CONFIG.goalHeight) // 右球門柱
+                ];
+            }
+
+            startMatch() {
+                this.scores = { p1: 0, ai: 0 };
+                this.timeLeft = CONFIG.matchSeconds;
+                this.active = true;
+                this.isPausedForGoal = false;
+                this.startTime = Date.now();
+                document.getElementById('player-score').innerText = '0';
+                document.getElementById('ai-score').innerText = '0';
+                document.getElementById('game-over').style.display = 'none';
+                document.getElementById('goal-banner').style.display = 'none';
+                this.resetPositions();
+                requestAnimationFrame(t => this.loop(t));
+            }
+
+            resetPositions() {
+                this.ball.pos = new Vec2(CONFIG.width / 2, CONFIG.height / 2);
+                this.ball.vel = new Vec2(0, 0);
+                this.p1.pos = new Vec2(220, CONFIG.height / 2);
+                this.p1.vel = new Vec2(0, 0);
+                this.ai.pos = new Vec2(780, CONFIG.height / 2);
+                this.ai.vel = new Vec2(0, 0);
+            }
+
+            handleCollision() {
+                // 實體間碰撞
+                const actors = [this.p1, this.ai, this.ball];
+                for (let i = 0; i < 3; i++) {
+                    for (let j = i+1; j < 3; j++) {
+                        const a = actors[i], b = actors[j];
+                        const dist = a.pos.dist(b.pos);
+                        const minDist = a.radius + b.radius;
+                        if (dist < minDist) {
+                            const normal = a.pos.sub(b.pos).normalized();
+                            const overlap = minDist - dist;
+                            const ratio = (a instanceof Ball || b instanceof Ball) ? 0.8 : 0.5;
+                            a.pos = a.pos.add(normal.mul(overlap * ratio));
+                            b.pos = b.pos.sub(normal.mul(overlap * (1 - ratio)));
+                            const relVel = a.vel.sub(b.vel);
+                            const sepVel = relVel.x * normal.x + relVel.y * normal.y;
+                            if (sepVel < 0) {
+                                const bounce = a instanceof Ball || b instanceof Ball ? 0.6 : 0.3;
+                                const impulse = normal.mul(sepVel * -(1 + bounce));
+                                a.vel = a.vel.add(impulse.mul(0.5));
+                                b.vel = b.vel.sub(impulse.mul(0.5));
+                            }
+                        }
+                    }
+                }
+
+                // 門柱碰撞 (物理 Side-posts)
+                this.posts.forEach(post => {
+                    const dist = this.ball.pos.dist(post);
+                    const minDist = this.ball.radius + CONFIG.postRadius;
+                    if (dist < minDist) {
+                        const normal = this.ball.pos.sub(post).normalized();
+                        const overlap = minDist - dist;
+                        this.ball.pos = this.ball.pos.add(normal.mul(overlap));
+                        
+                        const dot = this.ball.vel.x * normal.x + this.ball.vel.y * normal.y;
+                        if (dot < 0) {
+                            this.ball.vel = this.ball.vel.sub(normal.mul(2 * dot * 0.8));
+                        }
+                    }
+                });
+
+                if (this.p1.pos.dist(this.ball.pos) < this.p1.radius + this.ball.radius + 6) {
+                    // 支援鍵盤 Space 或觸控射門按鈕
+                    if (this.p1.keys['Space'] || this.p1.touchShoot) {
+                        const sDir = this.ball.pos.sub(this.p1.pos).normalized();
+                        this.ball.vel = sDir.mul(CONFIG.kickPower);
+                    }
+                }
+            }
+
+            drawField() {
+                for (let i = 0; i < 10; i++) {
+                    ctx.fillStyle = i % 2 === 0 ? varProp('--grass-color') : varProp('--grass-light');
+                    ctx.fillRect(i * 100, 0, 100, 600);
+                }
+                ctx.strokeStyle = varProp('--line-color'); ctx.lineWidth = 3;
+                ctx.strokeRect(10, 10, 980, 580);
+                ctx.beginPath(); ctx.moveTo(500, 10); ctx.lineTo(500, 590); ctx.stroke();
+                ctx.beginPath(); ctx.arc(500, 300, 70, 0, Math.PI * 2); ctx.stroke();
+                
+                const gy = (CONFIG.height - CONFIG.goalHeight) / 2;
+                // 球門網與支架
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+                ctx.strokeRect(-CONFIG.goalDepth, gy, CONFIG.goalDepth, CONFIG.goalHeight);
+                ctx.strokeRect(CONFIG.width, gy, CONFIG.goalDepth, CONFIG.goalHeight);
+                
+                // 門柱 (Posts)
+                ctx.fillStyle = '#fff';
+                this.posts.forEach(p => {
+                    ctx.beginPath(); ctx.arc(p.x, p.y, CONFIG.postRadius, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#999'; ctx.lineWidth = 1; ctx.stroke();
+                });
+            }
+
+            async onGoal(winner) {
+                if (this.isPausedForGoal) return;
+                this.isPausedForGoal = true;
+                
+                // 播放進球音效
+                try {
+                    goalSound.currentTime = 0;
+                    goalSound.play();
+                } catch (e) {
+                    console.warn('音效播放失敗:', e);
+                }
+
+                if (winner === 'PLAYER') {
+                    this.scores.p1++;
+                    document.getElementById('player-score').innerText = this.scores.p1;
+                } else {
+                    this.scores.ai++;
+                    document.getElementById('ai-score').innerText = this.scores.ai;
+                }
+
+                // 顯示進球橫幅
+                const banner = document.getElementById('goal-banner');
+                banner.style.display = 'flex';
+                
+                // 延遲重置
+                setTimeout(() => {
+                    if (!this.active) return;
+                    banner.style.display = 'none';
+                    this.resetPositions();
+                    this.isPausedForGoal = false;
+                }, CONFIG.resetDelay);
+            }
+
+            loop() {
+                if (!this.active) return;
+
+                if (!this.isPausedForGoal) {
+                    const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
+                    this.timeLeft = Math.max(0, CONFIG.matchSeconds - elapsed);
+                    document.getElementById('timer-display').innerText = this.timeLeft;
+
+                    if (this.timeLeft <= 0) {
+                        this.gameOver();
+                        return;
+                    }
+
+                    this.p1.update();
+                    this.ai.update(this.ball);
+                    const scored = this.ball.update();
+                    if (scored) this.onGoal(scored);
+                    this.handleCollision();
+                }
+
+                ctx.clearRect(0, 0, 1000, 600);
+                this.drawField();
+                this.ball.draw();
+                this.p1.render();
+                this.ai.render();
+
+                if (this.active) requestAnimationFrame(() => this.loop());
+            }
+
+            gameOver() {
+                this.active = false;
+                const overlay = document.getElementById('game-over');
+                overlay.style.display = 'flex';
+                document.getElementById('final-score').innerText = `${this.scores.p1} - ${this.scores.ai}`;
+                const heading = document.getElementById('winner-heading');
+                if (this.scores.p1 > this.scores.ai) {
+                    heading.innerText = "VICTORY! 🏆"; heading.style.color = "var(--player-blue)";
+                } else if (this.scores.ai > this.scores.p1) {
+                    heading.innerText = "DEFEAT! 🤖"; heading.style.color = "var(--ai-red)";
+                } else {
+                    heading.innerText = "DRAW GAME! 🤝"; heading.style.color = "white";
+                }
+            }
+        }
+
+        const varProp = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+        // ==========================================
+        // 虛擬搖桿控制器
+        // ==========================================
+        class VirtualJoystick {
+            /**
+             * @param {HTMLElement} baseEl  - 搖桿底盤 DOM 元素
+             * @param {HTMLElement} knobEl  - 搖桿把手 DOM 元素
+             * @param {HumanPlayer} player  - 玩家物件，用於傳入方向值
+             */
+            constructor(baseEl, knobEl, player) {
+                this.base = baseEl;
+                this.knob = knobEl;
+                this.player = player;
+                // 搖桿最大移動半徑 (像素)
+                this.maxRadius = 45;
+                // 目前觸控的 touch ID (支援多點觸控區分)
+                this.activeTouchId = null;
+
+                // 綁定觸控事件
+                this.base.addEventListener('touchstart', e => this.onStart(e), { passive: false });
+                this.base.addEventListener('touchmove', e => this.onMove(e), { passive: false });
+                this.base.addEventListener('touchend', e => this.onEnd(e), { passive: false });
+                this.base.addEventListener('touchcancel', e => this.onEnd(e), { passive: false });
+            }
+
+            /**
+             * 取得搖桿底盤的中心座標
+             */
+            getCenter() {
+                const rect = this.base.getBoundingClientRect();
+                return {
+                    x: rect.left + rect.width / 2,
+                    y: rect.top + rect.height / 2
+                };
+            }
+
+            onStart(e) {
+                e.preventDefault();
+                // 記錄第一根碰觸搖桿的手指
+                if (this.activeTouchId === null) {
+                    const touch = e.changedTouches[0];
+                    this.activeTouchId = touch.identifier;
+                    this.handleTouch(touch);
+                }
+            }
+
+            onMove(e) {
+                e.preventDefault();
+                // 只追蹤已記錄的手指
+                for (const touch of e.changedTouches) {
+                    if (touch.identifier === this.activeTouchId) {
+                        this.handleTouch(touch);
+                        break;
+                    }
+                }
+            }
+
+            onEnd(e) {
+                e.preventDefault();
+                for (const touch of e.changedTouches) {
+                    if (touch.identifier === this.activeTouchId) {
+                        // 手指離開：把手歸零
+                        this.activeTouchId = null;
+                        this.knob.style.transform = 'translate(-50%, -50%)';
+                        this.player.setTouchInput(0, 0);
+                        break;
+                    }
+                }
+            }
+
+            /**
+             * 根據手指位置計算搖桿偏移量，並傳給玩家
+             */
+            handleTouch(touch) {
+                const center = this.getCenter();
+                let dx = touch.clientX - center.x;
+                let dy = touch.clientY - center.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                // 限制在最大半徑內
+                if (dist > this.maxRadius) {
+                    dx = (dx / dist) * this.maxRadius;
+                    dy = (dy / dist) * this.maxRadius;
+                }
+
+                // 移動把手（CSS transform）
+                this.knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+                // 歸一化為 -1 ~ 1 傳給玩家
+                this.player.setTouchInput(dx / this.maxRadius, dy / this.maxRadius);
+            }
+        }
+
+        // ==========================================
+        // 觸控裝置初始化
+        // ==========================================
+
+        /**
+         * 判斷是否為觸控裝置
+         * 同時檢查 touchstart 事件支援與螢幕寬度
+         */
+        const isTouchDevice = () => {
+            return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        };
+
+        // 初始化進球音效
+        const goalSound = new Audio('peekaboolabcreative-11l-victory_sound_with_t-1749487409696-357609.mp3');
+
+        const game = new GameCore();
+        game.startMatch();
+
+        // 觸控裝置初始化邏輯
+        if (isTouchDevice()) {
+            // 顯示觸控 UI、隱藏鍵盤說明
+            document.getElementById('touch-controls').style.display = 'block';
+            document.getElementById('touch-instructions').style.display = 'block';
+            document.getElementById('instructions').style.display = 'none';
+
+            // 建立虛擬搖桿
+            const joystickBase = document.getElementById('joystick-base');
+            const joystickKnob = document.getElementById('joystick-knob');
+            const joystick = new VirtualJoystick(joystickBase, joystickKnob, game.p1);
+
+            // 射門按鈕事件
+            const shootBtn = document.getElementById('shoot-btn');
+            let shootTouchId = null;
+
+            shootBtn.addEventListener('touchstart', e => {
+                e.preventDefault();
+                shootTouchId = e.changedTouches[0].identifier;
+                game.p1.touchShoot = true;
+                shootBtn.classList.add('active');
+            }, { passive: false });
+
+            shootBtn.addEventListener('touchend', e => {
+                e.preventDefault();
+                for (const touch of e.changedTouches) {
+                    if (touch.identifier === shootTouchId) {
+                        game.p1.touchShoot = false;
+                        shootBtn.classList.remove('active');
+                        shootTouchId = null;
+                        break;
+                    }
+                }
+            }, { passive: false });
+
+            shootBtn.addEventListener('touchcancel', e => {
+                game.p1.touchShoot = false;
+                shootBtn.classList.remove('active');
+                shootTouchId = null;
+            }, { passive: false });
+
+            // 防止遊戲畫面上的預設觸控行為（滾動、縮放）
+            document.getElementById('game-container').addEventListener('touchmove', e => {
+                e.preventDefault();
+            }, { passive: false });
+
+            // 全域阻止雙擊縮放
+            document.addEventListener('dblclick', e => e.preventDefault());
+        }
+
+    </script>
+</body>
+
+</html>
