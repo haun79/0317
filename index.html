@@ -42,11 +42,15 @@
         }
 
         #game-wrapper {
-            position: relative;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             padding: 10px;
             background: #222;
             border-radius: 12px;
             box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
+            z-index: 10;
         }
 
         #game-container {
@@ -287,26 +291,22 @@
         /* 手機說明文字 */
         #touch-instructions {
             display: none;
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 100;
+            margin-top: 15px;
             font-size: 13px;
-            color: rgba(255, 255, 255, 0.8);
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
+            color: #666;
+            background: rgba(255, 255, 255, 0.05);
             padding: 8px 20px;
             border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            white-space: nowrap;
-            pointer-events: none;
         }
 
         /* ========== 響應式：手機小螢幕 ========== */
         @media (max-width: 1024px) {
-            /* 遊戲外框填滿螢幕寬度 */
+            /* 遊戲外框填滿螢幕寬度，並保持 fixed 置中 */
             #game-wrapper {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
                 padding: 4px;
                 border-radius: 0;
                 width: 100vw;
