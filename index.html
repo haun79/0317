@@ -195,76 +195,73 @@
         /* 觸控控制容器：疊在遊戲畫面底部 */
         #touch-controls {
             display: none;                /* 預設隱藏，觸控裝置才顯示 */
-            position: absolute;
+            position: fixed;              /* 改用 fixed 確保固定在可視區域底部 */
             bottom: 0;
             left: 0;
             right: 0;
-            height: 50%;                  /* 佔下半部，提供足夠操作空間 */
+            height: clamp(150px, 40vh, 300px); /* 使用 clamp 限制高度範圍 */
             pointer-events: none;         /* 容器本身不攔截觸控 */
             z-index: 50;
         }
 
-        /* 虛擬搖桿：觸控感應區 (較大的隱形區域，提升容錯率) */
-        .joystick-touch-area {
-            position: absolute;
-            left: 2%;
-            bottom: 5%;
-            width: 40vw;                  /* 佔螢幕寬度 40% 作為左手感應區 */
-            max-width: 250px;
-            height: 40vw;
-            max-height: 250px;
-            pointer-events: all;
-            touch-action: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* 虛擬搖桿底盤 (外圈視覺) */
+        /* 虛擬搖桿底盤 (外圈) */
         .joystick-base {
-            position: relative;
-            width: 18vw;                  /* 根據螢幕寬度縮放比例 */
-            height: 18vw;
-            max-width: 120px;
-            max-height: 120px;
-            min-width: 90px;
-            min-height: 90px;
+            position: absolute;
+            left: max(5%, 20px);
+            bottom: max(10%, 20px);
+            /* 使用 vw 實現自適應，並設定上下限 */
+            width: clamp(100px, 18vw, 160px);
+            height: clamp(100px, 18vw, 160px);
             border-radius: 50%;
-            background: rgba(30, 35, 45, 0.4);
-            border: 2px solid rgba(255, 255, 255, 0.15);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 2px 10px rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(4px);
-            pointer-events: none;         /* 視覺元素不擋觸控 */
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.3) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(255, 255, 255, 0.1);
+            pointer-events: all;          /* 搖桿區域可觸控 */
+            touch-action: none;
+            /* 增加觸控容錯範圍 (Hitbox) */
+            &::before {
+                content: '';
+                position: absolute;
+                top: -30%; left: -30%; right: -30%; bottom: -30%;
+                border-radius: 50%;
+                background: transparent;
+            }
         }
 
-        /* 搖桿把手 (內圈實心圓) */
+        /* 搖桿把手 (內圈) */
         .joystick-knob {
             position: absolute;
-            width: 38%;
-            height: 38%;
+            width: 45%;
+            height: 45%;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.85);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4), 0 0 15px rgba(255, 255, 255, 0.3);
-            /* 預設居中在底盤中央 */
+            /* 高對比亮色 */
+            background: var(--player-blue);
+            border: 2px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), inset 0 2px 5px rgba(255, 255, 255, 0.5);
+            /* 初始居中 */
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
+            /* 平滑回彈動畫 */
+            transition: transform 0.2s cubic-bezier(0.25, 1.5, 0.5, 1), background 0.15s, box-shadow 0.15s;
             pointer-events: none;
-            /* 移除 transition，改在 JS 中動態控制回彈動畫 */
         }
-        
-        /* 回彈動畫專用 class，由 JS 控制開關 */
-        .joystick-knob.returning {
-            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+        /* 搖桿作動時的狀態 */
+        .joystick-base.active .joystick-knob {
+            transition: none; /* 移除動畫，零延遲跟隨手指 */
+            background: #4fc3f7; /* 變得更亮 */
+            box-shadow: 0 6px 15px rgba(33, 150, 243, 0.6), inset 0 2px 5px rgba(255, 255, 255, 0.8);
+            transform: translate(-50%, -50%) scale(0.95);
         }
 
         /* 射門按鈕 */
         .shoot-btn {
             position: absolute;
-            right: 5%;
-            bottom: 10%;
-            width: 100px;
-            height: 100px;
+            right: max(5%, 20px);
+            bottom: max(10%, 20px);
+            width: clamp(80px, 15vw, 120px);
+            height: clamp(80px, 15vw, 120px);
             border-radius: 50%;
             background: rgba(255, 215, 0, 0.3);
             border: 3px solid rgba(255, 215, 0, 0.6);
@@ -387,10 +384,8 @@
             <!-- 觸控控制層：虛擬搖桿 + 射門按鈕 -->
             <div id="touch-controls">
                 <!-- 虛擬搖桿：左下角 -->
-                <div class="joystick-touch-area" id="joystick-area">
-                    <div class="joystick-base" id="joystick-base">
-                        <div class="joystick-knob returning" id="joystick-knob"></div>
-                    </div>
+                <div class="joystick-base" id="joystick-base">
+                    <div class="joystick-knob" id="joystick-knob"></div>
                 </div>
                 <!-- 射門按鈕：右下角 -->
                 <div class="shoot-btn" id="shoot-btn">SHOOT</div>
@@ -862,47 +857,48 @@
         const varProp = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
         // ==========================================
-        // 虛擬搖桿控制器 (現代化動態版本)
+        // 虛擬搖桿控制器 (優化版)
         // ==========================================
         class VirtualJoystick {
             /**
-             * @param {HTMLElement} touchAreaEl - 負責感應觸控的大範圍區域 DOM
-             * @param {HTMLElement} baseEl      - 搖桿底盤（視覺外圈）
-             * @param {HTMLElement} knobEl      - 搖桿把手（視覺內圈）
-             * @param {HumanPlayer} player      - 玩家物件，用於傳入方向值
+             * @param {HTMLElement} baseEl  - 搖桿底盤 DOM 元素
+             * @param {HTMLElement} knobEl  - 搖桿把手 DOM 元素
+             * @param {HumanPlayer} player  - 玩家物件，用於傳入方向值
              */
-            constructor(touchAreaEl, baseEl, knobEl, player) {
-                this.touchArea = touchAreaEl;
+            constructor(baseEl, knobEl, player) {
                 this.base = baseEl;
                 this.knob = knobEl;
                 this.player = player;
                 
-                // 動態取得最大移動半徑：底盤寬度的一半減去把手半徑的一定比例
-                this.maxRadius = 0;
-                // 目前觸控的 touch ID
+                // 動態計算最大半徑 (底盤半徑的一半)
+                this.updateMaxRadius();
+                window.addEventListener('resize', () => this.updateMaxRadius());
+
+                // 目前觸控的 touch ID / 滑鼠狀態
                 this.activeTouchId = null;
+                this.isMouseDown = false;
 
-                // 綁定觸控事件至外圍的大感應區
-                this.touchArea.addEventListener('touchstart', e => this.onStart(e), { passive: false });
-                this.touchArea.addEventListener('touchmove', e => this.onMove(e), { passive: false });
-                this.touchArea.addEventListener('touchend', e => this.onEnd(e), { passive: false });
-                this.touchArea.addEventListener('touchcancel', e => this.onEnd(e), { passive: false });
-                
-                // 視窗縮放時重新計算半徑
-                window.addEventListener('resize', () => this.updateDimensions());
-                // 初始計算
-                setTimeout(() => this.updateDimensions(), 100);
+                this.bindEvents();
             }
 
-            updateDimensions() {
+            updateMaxRadius() {
                 const rect = this.base.getBoundingClientRect();
-                // 最大可動範圍設為底盤半徑的 75%
-                this.maxRadius = (rect.width / 2) * 0.75;
+                this.maxRadius = rect.width / 2;
             }
 
-            /**
-             * 取得觸控必須對齊的底盤中心點 (相對於視窗的絕對座標)
-             */
+            bindEvents() {
+                // Touch events
+                this.base.addEventListener('touchstart', e => this.onStart(e), { passive: false });
+                window.addEventListener('touchmove', e => this.onMove(e), { passive: false });
+                window.addEventListener('touchend', e => this.onEnd(e), { passive: false });
+                window.addEventListener('touchcancel', e => this.onEnd(e), { passive: false });
+
+                // Mouse events (for desktop testing)
+                this.base.addEventListener('mousedown', e => this.onMouseStart(e));
+                window.addEventListener('mousemove', e => this.onMouseMove(e));
+                window.addEventListener('mouseup', e => this.onMouseEnd(e));
+            }
+
             getCenter() {
                 const rect = this.base.getBoundingClientRect();
                 return {
@@ -911,80 +907,92 @@
                 };
             }
 
+            // --- Touch Handlers ---
             onStart(e) {
-                e.preventDefault();
-                // 記錄第一根碰觸搖桿的手指
+                e.preventDefault(); // 防止滾動
                 if (this.activeTouchId === null) {
                     const touch = e.changedTouches[0];
                     this.activeTouchId = touch.identifier;
-                    
-                    // 開始拖曳時，移除平滑回彈的 css 類別，確保指哪走哪沒有延遲
-                    this.knob.classList.remove('returning');
-                    
-                    // 若觸控點在搖桿上，直接跟隨
-                    this.handleTouch(touch);
+                    this.base.classList.add('active'); // 加入 active 狀態
+                    this.triggerHaptic();
+                    this.handleInput(touch.clientX, touch.clientY);
                 }
             }
 
             onMove(e) {
-                e.preventDefault();
-                // 只追蹤已記錄的手指
+                if (this.activeTouchId === null) return;
+                // 只在底盤有被按住時阻止預設行為
+                if (e.target === this.base) e.preventDefault(); 
+                
                 for (const touch of e.changedTouches) {
                     if (touch.identifier === this.activeTouchId) {
-                        this.handleTouch(touch);
+                        this.handleInput(touch.clientX, touch.clientY);
                         break;
                     }
                 }
             }
 
             onEnd(e) {
-                e.preventDefault();
+                if (this.activeTouchId === null) return;
                 for (const touch of e.changedTouches) {
                     if (touch.identifier === this.activeTouchId) {
-                        // 手指離開：把手歸零
                         this.activeTouchId = null;
-                        
-                        // 加上平滑回彈動畫類別
-                        this.knob.classList.add('returning');
-                        this.knob.style.transform = 'translate(-50%, -50%)';
-                        
-                        this.player.setTouchInput(0, 0);
+                        this.resetKnob();
                         break;
                     }
                 }
             }
 
-            /**
-             * 根據手指位置計算搖桿偏移量，並傳給玩家
-             */
-            handleTouch(touch) {
-                // 如果尺寸尚未載入則臨時更新一次
-                if (this.maxRadius === 0) this.updateDimensions();
-                
+            // --- Mouse Handlers ---
+            onMouseStart(e) {
+                if (this.activeTouchId !== null) return; // ignore mouse if touching
+                e.preventDefault();
+                this.isMouseDown = true;
+                this.base.classList.add('active');
+                this.handleInput(e.clientX, e.clientY);
+            }
+
+            onMouseMove(e) {
+                if (!this.isMouseDown) return;
+                this.handleInput(e.clientX, e.clientY);
+            }
+
+            onMouseEnd(e) {
+                if (!this.isMouseDown) return;
+                this.isMouseDown = false;
+                this.resetKnob();
+            }
+
+            // --- Core Logic ---
+            handleInput(clientX, clientY) {
                 const center = this.getCenter();
-                let dx = touch.clientX - center.x;
-                let dy = touch.clientY - center.y;
+                let dx = clientX - center.x;
+                let dy = clientY - center.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
 
-                // 限制把手在最大半徑內
+                // Clamp to maxRadius
                 if (dist > this.maxRadius) {
                     dx = (dx / dist) * this.maxRadius;
                     dy = (dy / dist) * this.maxRadius;
                 }
 
-                // 移動把手（CSS transform）
+                // Update knob visual
                 this.knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
 
-                // 傳遞 0 到 1 之間的歸一化方向給玩家
-                // 即便把手移動距離受限，輸出值依然根據搖桿滿舵的比例計算
-                const inputMagnitude = Math.min(dist / this.maxRadius, 1.0);
-                
-                if (dist > 0) {
-                    const norX = dx / dist;
-                    const norY = dy / dist;
-                    this.player.setTouchInput(norX * inputMagnitude, norY * inputMagnitude);
-                } else {
-                    this.player.setTouchInput(0, 0);
+                // Normalize for game engine
+                this.player.setTouchInput(dx / this.maxRadius, dy / this.maxRadius);
+            }
+
+            resetKnob() {
+                this.base.classList.remove('active');
+                this.knob.style.transform = 'translate(-50%, -50%)';
+                this.player.setTouchInput(0, 0);
+                this.triggerHaptic();
+            }
+
+            triggerHaptic() {
+                if (navigator.vibrate) {
+                    try { navigator.vibrate(15); } catch(e) {}
                 }
             }
         }
@@ -1015,39 +1023,59 @@
             document.getElementById('instructions').style.display = 'none';
 
             // 建立虛擬搖桿
-            const joystickArea = document.getElementById('joystick-area');
             const joystickBase = document.getElementById('joystick-base');
             const joystickKnob = document.getElementById('joystick-knob');
-            const joystick = new VirtualJoystick(joystickArea, joystickBase, joystickKnob, game.p1);
+            const joystick = new VirtualJoystick(joystickBase, joystickKnob, game.p1);
 
-            // 射門按鈕事件
+            // 射門按鈕事件 (支援觸控與滑鼠)
             const shootBtn = document.getElementById('shoot-btn');
             let shootTouchId = null;
+            let isShootMouseDown = false;
+
+            const triggerShootStart = () => {
+                game.p1.touchShoot = true;
+                shootBtn.classList.add('active');
+                if (navigator.vibrate) try { navigator.vibrate(15); } catch(e) {}
+            };
+
+            const triggerShootEnd = () => {
+                game.p1.touchShoot = false;
+                shootBtn.classList.remove('active');
+            };
 
             shootBtn.addEventListener('touchstart', e => {
                 e.preventDefault();
-                shootTouchId = e.changedTouches[0].identifier;
-                game.p1.touchShoot = true;
-                shootBtn.classList.add('active');
+                if (shootTouchId === null) {
+                    shootTouchId = e.changedTouches[0].identifier;
+                    triggerShootStart();
+                }
             }, { passive: false });
 
-            shootBtn.addEventListener('touchend', e => {
-                e.preventDefault();
+            window.addEventListener('touchend', e => {
+                if (shootTouchId === null) return;
                 for (const touch of e.changedTouches) {
                     if (touch.identifier === shootTouchId) {
-                        game.p1.touchShoot = false;
-                        shootBtn.classList.remove('active');
+                        triggerShootEnd();
                         shootTouchId = null;
                         break;
                     }
                 }
             }, { passive: false });
 
-            shootBtn.addEventListener('touchcancel', e => {
-                game.p1.touchShoot = false;
-                shootBtn.classList.remove('active');
-                shootTouchId = null;
-            }, { passive: false });
+            // 滑鼠支援
+            shootBtn.addEventListener('mousedown', e => {
+                if (shootTouchId !== null) return;
+                e.preventDefault();
+                isShootMouseDown = true;
+                triggerShootStart();
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (isShootMouseDown) {
+                    isShootMouseDown = false;
+                    triggerShootEnd();
+                }
+            });
 
             // 防止遊戲畫面上的預設觸控行為（滾動、縮放）
             document.getElementById('game-container').addEventListener('touchmove', e => {
