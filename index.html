@@ -3,8 +3,15 @@
 
 <head>
     <meta charset="UTF-8">
-    <!-- 手機必備：禁止使用者手動縮放，確保遊戲畫面穩定 -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 手機必備：禁止使用者手動縮放，加入 viewport-fit=cover 支援瀏海螢幕 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- PWA 與 iOS Web App 支援 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#121212">
+    
     <title>2D Pro Soccer - Advanced Physics Edition</title>
     <style>
         :root {
@@ -284,6 +291,33 @@
             border-color: rgba(255, 215, 0, 0.9);
         }
 
+        /* 全螢幕按鈕 */
+        #fullscreen-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 100;
+            backdrop-filter: blur(4px);
+            transition: background 0.2s, opacity 0.3s;
+        }
+
+        #fullscreen-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 剛進入全螢幕時隱藏按鈕 */
+        :fullscreen #fullscreen-btn,
+        :-webkit-full-screen #fullscreen-btn {
+            display: none;
+        }
+
         /* 手機說明文字 */
         #touch-instructions {
             display: none;
@@ -380,6 +414,9 @@
             </div>
 
             <canvas id="gameCanvas"></canvas>
+
+            <!-- 輔助按鈕：全螢幕 -->
+            <button id="fullscreen-btn">⛶ Fullscreen</button>
 
             <!-- 觸控控制層：虛擬搖桿 + 射門按鈕 -->
             <div id="touch-controls">
@@ -1102,6 +1139,34 @@
             // 全域阻止雙擊縮放
             document.addEventListener('dblclick', e => e.preventDefault());
         }
+
+        // ==========================================
+        // 全螢幕控制邏輯
+        // ==========================================
+        const fsBtn = document.getElementById('fullscreen-btn');
+        fsBtn.addEventListener('click', () => {
+            const docElement = document.documentElement;
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                if (docElement.requestFullscreen) {
+                    docElement.requestFullscreen().catch(err => console.warn(err));
+                } else if (docElement.webkitRequestFullscreen) { /* Safari */
+                    docElement.webkitRequestFullscreen();
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) { /* Safari */
+                    document.webkitExitFullscreen();
+                }
+            }
+            
+            // 嘗試鎖定為橫向 (若瀏覽器與裝置支援)
+            try {
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(e => console.warn('無法強制橫向:', e));
+                }
+            } catch (err) {}
+        });
 
     </script>
 </body>

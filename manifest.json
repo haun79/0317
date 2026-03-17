@@ -1,0 +1,18 @@
+{
+  "name": "2D Pro Soccer",
+  "short_name": "Soccer2D",
+  "description": "A 2D top-down soccer game with advanced physics.",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#121212",
+  "theme_color": "#2196f3",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSI1MCIgZmlsbD0iIzEyMTIxMiIvPjxjaXJjbGUgY3g9IjUwIiBjeT0iNTAiIHI9IjQwIiBmaWxsPSIjZmZmIi8+PHBhdGggZD0iTTUwIDEwIEw2MCAzMCBMODAgNDAgTDYwIDUwIEw3MCA3MCBMNTAgNjAgTDMwIDcwIEw0MCA1MCBMMjAgNDAgTDQwIDMwIFoiIGZpbGw9IiMxMjEyMTIiLz48L3N2Zz4=",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
